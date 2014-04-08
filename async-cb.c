@@ -17,7 +17,6 @@ static void run_test() {
 
 
 static void async_cb(uv_async_t* handle, int status) {
-  printf("async_cb\n");
   if (++cntr >= RUNS)
     uv_close((uv_handle_t*) async_h, NULL);
   else
@@ -26,7 +25,7 @@ static void async_cb(uv_async_t* handle, int status) {
 
 
 static void setup() {
-  var r;
+  int r;
 
   async_h = (uv_async_t*) malloc(sizeof(*async_h));
   assert(async_h != NULL);

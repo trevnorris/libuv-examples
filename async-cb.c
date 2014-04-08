@@ -4,48 +4,86 @@
 
 #include "uv.h"
 
-#define RUNS 1e5
+#define RUNS 1e4
 
-uv_async_t* async_h;
+typedef struct {
+  uv_async_t parent;
+  uv_async_t worker;
+  uv_loop_t worker_loop;
+  uv_thread_t worker_thread;
+} thread_comm;
+
 int cntr = 0;
 
 
-static void run_test() {
-  /* uv_async_send always returns 0. */
-  uv_async_send(async_h);
+static void parent_cb(uv_async_t* handle, int status) {
+  thread_comm* comm = (thread_comm*) handle->data;
+  uv_async_send(&(comm->worker));
+
+  if (++cntr < RUNS)
+    return;
+
+  uv_thread_join(&(comm->worker_thread));
+  uv_close((uv_handle_t*) &(comm->parent), NULL);
 }
 
 
-static void async_cb(uv_async_t* handle, int status) {
-  if (++cntr >= RUNS)
-    uv_close((uv_handle_t*) async_h, NULL);
+static void worker_close(uv_handle_t* handle) {
+  thread_comm* comm = (thread_comm*) handle;
+  uv_stop(&(comm->worker_loop));
+  uv_loop_close(&(comm->worker_loop));
+}
+
+
+static void worker_cb(uv_async_t* handle, int status) {
+  thread_comm* comm = (thread_comm*) handle->data;
+  if (cntr < RUNS)
+    uv_async_send(&(comm->parent));
   else
-    run_test();
+    uv_close((uv_handle_t*) &(comm->worker), worker_close);
 }
 
 
-static void setup() {
+static void thread_entry(void* arg) {
   int r;
 
-  async_h = (uv_async_t*) malloc(sizeof(*async_h));
-  assert(async_h != NULL);
+  thread_comm* comm = (thread_comm*) arg;
 
-  r = uv_async_init(uv_default_loop(), async_h, async_cb);
+  r = uv_loop_init(&(comm->worker_loop));
   assert(r == 0);
-}
 
+  r = uv_async_init(&(comm->worker_loop), &(comm->worker), worker_cb);
+  assert(r == 0);
+  comm->worker.data = (void*) comm;
 
-static void cleanup() {
-  free(async_h);
+  uv_async_send(&(comm->parent));
+
+  uv_run(&(comm->worker_loop), UV_RUN_DEFAULT);
 }
 
 
 int main() {
+  thread_comm comm;
+  uint64_t time;
   int r;
-  setup();
-  run_test();
-  r = uv_run(uv_default_loop(), UV_RUN_DEFAULT);
-  cleanup();
-  printf("cntr: %i\n", cntr);
-  return r;
+
+  r = uv_async_init(uv_default_loop(), &(comm.parent), parent_cb);
+  assert(r == 0);
+  comm.parent.data = (void*) &comm;
+
+  r = uv_thread_create(&(comm.worker_thread), thread_entry, (void*) &comm);
+  assert(r == 0);
+
+  time = uv_hrtime();
+
+  uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+  uv_loop_close(uv_default_loop());
+
+  time = uv_hrtime() - time;
+  printf("test complete: %i\n", cntr);
+  printf("time: %f\n", time / 1e9);
+  printf("back-n-forth/sec: %f\n", ((cntr * 1.0) / (time / 1e9)) * 1.0);
+  printf("ns/op: %f\n", (time * 1.0) / (cntr * 1.0));
+
+  return 0;
 }

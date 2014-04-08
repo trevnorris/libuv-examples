@@ -4,88 +4,49 @@
 
 #include "uv.h"
 
-#define QUANTITY 1000000
-#define SIZE 1
+#define RUNS 1e5
 
-typedef struct {
-  int id;
-  int size;
-  int cntr;
-  uv_async_t async;
-} async_req_t;
-
-static int q_cntr = 0;
-
-static void after(uv_work_t* req, int status);
+uv_async_t* async_h;
+int cntr = 0;
 
 
-static void async_send_cb(uv_async_t* handle, int status) {
-  /*async_req_t* async_req = (async_req_t*) handle->data;*/
-  /*printf("async_send_cb-%i : %i\n", async_req->id, async_req->cntr);*/
+static void run_test() {
+  /* uv_async_send always returns 0. */
+  uv_async_send(async_h);
 }
 
 
-static void work_cb(uv_work_t* req) {
-  async_req_t* async_req = (async_req_t*) req->data;
-  int size = async_req->size;
-  /*printf("work_cb-%i\n", async_req->id);*/
-
-  for (int i = 0; i < size; i++) {
-    async_req->cntr = i;
-    uv_async_send(&async_req->async);
-  }
+static void async_cb(uv_async_t* handle, int status) {
+  printf("async_cb\n");
+  if (++cntr >= RUNS)
+    uv_close((uv_handle_t*) async_h, NULL);
+  else
+    run_test();
 }
 
 
-static void setup_req(uv_work_t** req,
-                      async_req_t** async_req,
-                      int id,
-                      int size) {
-  int r;
+static void setup() {
+  var r;
 
-  *req = (uv_work_t*) malloc(sizeof(**req));
-  assert(*req != NULL);
+  async_h = (uv_async_t*) malloc(sizeof(*async_h));
+  assert(async_h != NULL);
 
-  *async_req = (async_req_t*) malloc(sizeof(**async_req));
-  assert(*async_req != NULL);
-
-  (*async_req)->id = id;
-  (*async_req)->size = size;
-  (*async_req)->cntr = 0;
-
-  r = uv_async_init(uv_default_loop(), &((*async_req)->async), async_send_cb);
-  assert(r == 0);
-
-  (*async_req)->async.data = (void*) (*async_req);
-  (*req)->data = (void*) (*async_req);
-
-  r = uv_queue_work(uv_default_loop(), *req, work_cb, after);
+  r = uv_async_init(uv_default_loop(), async_h, async_cb);
   assert(r == 0);
 }
 
 
-static void after(uv_work_t* req, int status) {
-  /*printf("after-%i\n", ((async_req_t*)(req->data))->id);*/
-  uv_close((uv_handle_t*)(&((async_req_t*) req->data)->async), NULL);
-  free(req->data);
-  free(req);
-
-  if (++q_cntr < QUANTITY) {
-    uv_work_t* req;
-    async_req_t* async;
-    setup_req(&req, &async, q_cntr, SIZE);
-  }
+static void cleanup() {
+  free(async_h);
 }
 
 
 int main() {
-  for (int i = 0; i < 3; i++) {
-    q_cntr++;
-    uv_work_t* req;
-    async_req_t* async;
-    setup_req(&req, &async, q_cntr, SIZE);
-  }
-
-
-  return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+  int r;
+  setup();
+  run_test();
+  r = uv_run(uv_default_loop(), UV_RUN_DEFAULT);
+  cleanup();
+  printf("cntr: %i\n", cntr);
+  return r;
 }

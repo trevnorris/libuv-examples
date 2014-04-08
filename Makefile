@@ -1,6 +1,8 @@
 CC ?= $(which clang)
 
 BUILDTYPE ?= Release
+BUILDFILE ?= main.c
+
 UV_DIR ?= deps/uv
 UV_BUILD = $(UV_DIR)/out/$(BUILDTYPE)
 UV_FLAGS = -fno-omit-frame-pointer
@@ -9,7 +11,7 @@ IDIR = $(UV_DIR)/include
 CFLAGS = -pthread -fno-omit-frame-pointer -Wall -g
 
 all:
-	$(CC) $(CFLAGS) -o run main.c $(UV_BUILD)/libuv.a -I$(IDIR)
+	$(CC) $(CFLAGS) -o run $(BUILDFILE) $(UV_BUILD)/libuv.a -I$(IDIR)
 
 .PHONY: libuv.a clean
 

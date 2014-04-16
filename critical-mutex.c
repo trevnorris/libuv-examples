@@ -7,17 +7,12 @@
 static uv_mutex_t mutex;
 static uv_thread_t thread;
 
-static int crit_data = 0;
-
-
 static void thread_cb(void* arg) {
+  printf("thread_cb\n");
   uv_mutex_lock(&mutex);
-  printf("thread mutex start\n");
-  crit_data = 2;
-  printf("thread mutex end\n");
+  printf("thread mutex\n");
   uv_mutex_unlock(&mutex);
 }
-
 
 int main() {
   assert(0 == uv_mutex_init(&mutex));
@@ -26,7 +21,6 @@ int main() {
   uv_mutex_lock(&mutex);
   printf("main mutex start\n");
   sleep(1);
-  crit_data = 1;
   printf("main mutex end\n");
   uv_mutex_unlock(&mutex);
 

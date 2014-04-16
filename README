@@ -1,0 +1,21 @@
+libuv examples
+
+Each script here is a small example of how to use libuv. Each of these
+were compiled against libuv v0.11.22.
+
+The Makefile is pretty shabby, but it has a few basics. First, to build
+libuv just run:
+
+$ make libuv.a
+
+Then you can run make against any given target file by doing:
+
+$ BUILDFILE=<filename> make
+
+This will compile the file to ./run. You can also specify the name of
+the output file like so:
+
+$ OUTFILE=<filename> make
+
+That about covers it. If you see any issues/improvements PRs are more
+than welcome.

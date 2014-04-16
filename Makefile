@@ -16,12 +16,13 @@ all:
 .PHONY: libuv.a clean
 
 libuv.a:
+	@git submodule update
 	@if [ ! -d $(UV_DIR)/build/gyp ]; then \
 		git clone https://git.chromium.org/external/gyp.git $(UV_DIR)/build/gyp; \
 	fi
 	@cd $(UV_DIR); \
 		./gyp_uv.py -f make > /dev/null; \
-		BUILDTYPE=$(BUILDTYPE) CFLAGS=$(UV_FLAGS) make -C out -j8
+		BUILDTYPE=$(BUILDTYPE) CFLAGS=$(UV_FLAGS) make -C out -j4
 
 clean:
 	@rm -fv ./run
